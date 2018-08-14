@@ -379,7 +379,6 @@ classdef InductionMachine
             end
             
             %get starting torque and rotorspeed maximizer
-            startingTorque = newIM.getStartingTorque(voltage,frequency);
             [~, maximRotorSpeed] = newIM.getMaxTorque(voltage,frequency);
             
             %convert to slip and make slip condition
@@ -394,9 +393,9 @@ classdef InductionMachine
             
             
             %if in stable region, check intersection
+            slipCondition = prevSlip < maximSlip;
             torqueDifference = torqueHandle(prevSlip) - loadTorque;
-            torqueCondition = loadTorque < startingTorque;
-            if torqueDifference > 0 || torqueCondition
+            if slipCondition || (torqueDifference > 0)
                 loadSlip = fminbnd(objFunction,0,maximSlip,varargin{:});
                 loadRotorSpeed = newIM.Slip2RotorSpeed(frequency,loadSlip);
             else
@@ -411,7 +410,11 @@ classdef InductionMachine
         end
 %-------END-GETROTORSPEED--------------------------------------------------
 
-%-------GETSTALLTORQUE-----------------------------------------------------
+%-------GETTORQUE----------------------------------------------------------
+function Torque = getTo
+%-------END-GETTORQUE------------------------------------------------------
+
+%-------GETSTARTINGTORQUE--------------------------------------------------
         function startingTorque = getStartingTorque(newIM,voltage,frequency)
             
             %check if voltage and frequency are positive
@@ -433,7 +436,7 @@ classdef InductionMachine
             
             startingTorque = 3/ws * Ir^2 * Rr;
         end
-%-------END-GETSTALLTORQUE-------------------------------------------------
+%-------END-GETSTARTINGTORQUE----------------------------------------------
 
 %-------GETMAXTORQUE-------------------------------------------------------
         function [maxTorque, maximRotorSpeed] = getMaxTorque(newIM,voltage,frequency)

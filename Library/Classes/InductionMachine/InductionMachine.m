@@ -410,7 +410,18 @@ classdef InductionMachine
         end
 %-------END-GETROTORSPEED--------------------------------------------------
 
-%-------GETSTALLTORQUE-----------------------------------------------------
+%-------GETTORQUE----------------------------------------------------------
+        function Torque = getTorque(newIM,voltage,frequency,rotorSpeed)
+            
+            tHandle = newIM.TorqueFunctionHandle(voltage,frequency);
+            slip = newIM.RotorSpeed2slip(frequency,rotorSpeed);
+            
+            Torque = tHandle(slip);
+            
+        end
+%-------END-GETTORQUE------------------------------------------------------
+
+%-------GETSTARTINGTORQUE--------------------------------------------------
         function startingTorque = getStartingTorque(newIM,voltage,frequency)
             
             %check if voltage and frequency are positive
@@ -432,7 +443,7 @@ classdef InductionMachine
             
             startingTorque = 3/ws * Ir^2 * Rr;
         end
-%-------END-GETSTALLTORQUE-------------------------------------------------
+%-------END-GETSTARTINGTORQUE----------------------------------------------
 
 %-------GETMAXTORQUE-------------------------------------------------------
         function [maxTorque, maximRotorSpeed] = getMaxTorque(newIM,voltage,frequency)
