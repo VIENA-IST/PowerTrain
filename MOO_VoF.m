@@ -2,9 +2,10 @@
 %% Initialize variables and fminbnd options
 
 motor = InductionMachine;
+loadTorque = 40;
+Inertia = 1.48;
 
-opt = optimset('fminbnd');
-opt.TolX = 1e-3;
+opt = odeset('RelTol',1e-3,'AbsTol',1e-3);
 
 %%
 
@@ -25,7 +26,7 @@ options.maxGen  = 100;                  % max generation
 
 options.numObj = 1;                     % number of objectives
 options.numVar = 2*31;                  % number of design variables
-options.numCons = 2;                    % number of constraints
+options.numCons = 1;                    % number of constraints
 
 options.vartype = ones(1,options.numVar);
 
@@ -40,6 +41,6 @@ options.poolsize = 3;
 options.objfun = @TP_MOO_VIENA;         % objective function handle
 options.plotInterval = 5;               % interval between two calls of "plotnsga". 
 
-result = nsga2(options,motor,opt);          % begin the optimization!
+result = nsga2(options,motor,Inertia,loadTorque,opt);          % begin the optimization!
 
 
