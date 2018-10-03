@@ -24,7 +24,7 @@ grid minor
 
 xlabel('speed [RPM]')
 
-titleString = sprintf('Us = %g [V], F = %g [Hz], V/F = %0.2g',voltage/sqrt(3),frequency, voltage/sqrt(3)/frequency);
+titleString = sprintf('Us = %g [V], F = %g [Hz], V/F = %0.2g',voltage,frequency, voltage/frequency);
 title(titleString)
 
 

@@ -223,7 +223,7 @@ classdef InductionMachine
                 case 0
                     rotorSpeed = 0;
                 otherwise
-                    rotorSpeed = (0:statorFreq/500:statorFreq)*60;
+                    rotorSpeed = linspace(0,statorFreq,10000)*60;
             end
             
             solutions = SweepSolutions(newIM,voltage,frequency,rotorSpeed);
@@ -238,6 +238,83 @@ classdef InductionMachine
             
         end
 %-------END-PLOT-----------------------------------------------------------
+
+%-------SURFACE------------------------------------------------------------
+        function surface(newIM,varargin)
+            
+            %check how many input arguments are
+            %set voltage, frequency and flag
+            switch nargin
+                case 1
+                    Kvof = 1;
+                    finalFrequency = newIM.nameplateData.Frequency*1.10;
+                case 3
+                    Kvof = varargin{1};
+                    finalFrequency = varargin{2}*1.10;
+                otherwise
+                    error('Incorrect number of inputs. Have 0 inputs, or 2 inputs: Scalar Command constant and final frequency.')
+            end
+            
+            numberOfPoints = 250;
+            
+            %check if voltage and frequency are positive
+            [Kvof,finalFrequency] = newIM.CheckVoltageFrequency(Kvof,finalFrequency);
+            
+            %calculate solutions for each rotor speed
+            statorFreq = finalFrequency/newIM.polePair;
+            
+            frequency = linspace(0,finalFrequency,numberOfPoints);
+            rotorSpeed = linspace(0,statorFreq,numberOfPoints)*60;
+
+            [freqMesh,rotorMesh] = meshgrid(frequency,rotorSpeed);
+            
+            Torque = zeros(size(freqMesh));
+            eff = zeros(size(freqMesh));
+            
+            for iFreq = frequency
+                voltage = Kvof*iFreq;
+                iStatorFreq = iFreq/newIM.polePair*60;
+                
+                auxRotorSpeed = rotorMesh(freqMesh == iFreq & rotorMesh <= iStatorFreq);
+                solutions = SweepSolutions(newIM,voltage,iFreq,auxRotorSpeed);
+                
+                Torque(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,4);
+                eff(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,end);
+            end
+            
+            figure;
+            surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
+            grid minor
+            xlabel('Freq [Hz]')
+            ylabel('Speed [RPM]')
+            zlabel('Torque [Nm]')
+            
+            title(['Torque Map, VoF = ' num2str(Kvof)])
+            
+            hold on
+            
+            maxRotor = zeros(1,numberOfPoints);
+            maxFreq = zeros(1,numberOfPoints);
+            [maxTorque, maxIndex] = max(Torque);
+            for k =1:numberOfPoints
+                maxRotor(k) = rotorMesh(maxIndex(k),k);
+                maxFreq(k) = freqMesh(maxIndex(k),k);
+            end
+            
+            plot3(maxFreq,maxRotor,maxTorque,'k*')
+            
+            
+            figure;
+            surf(freqMesh,rotorMesh,eff,'EdgeColor','none')
+            grid minor
+            xlabel('Freq [Hz]')
+            ylabel('Speed [RPM]')
+            zlabel('Torque [Nm]')
+            
+            title(['Efficiency Map, VoF = ' num2str(Kvof)])
+            
+        end
+%-------END-SURFACE--------------------------------------------------------
 
 %--------------------------------------------------------------------------
 %-SET METHODS--------------------------------------------------------------
@@ -555,7 +632,7 @@ classdef InductionMachine
 %-------END-GETTHEVENIN----------------------------------------------------
 
     
-%-------GETTHEVENIN--------------------------------------------------------
+%-------GETTORQUEFUNCTIONHANDLE--------------------------------------------
         function fHandle = TorqueFunctionHandle(newIM,voltage,frequency)
         
             %check if voltage and frequency are positive
@@ -577,7 +654,7 @@ classdef InductionMachine
             
             fHandle = @(s) 3/ws * (Ir(s))^2 * Rr/s;
         end
-%-------END-GETTHEVENIN----------------------------------------------------
+%-------END-GETTORQUEFUNCTIONHANDLE----------------------------------------
 
     end    
 end
