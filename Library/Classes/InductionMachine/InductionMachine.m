@@ -293,15 +293,23 @@ classdef InductionMachine
             
             hold on
             
-            maxRotor = zeros(1,numberOfPoints);
-            maxFreq = zeros(1,numberOfPoints);
-            [maxTorque, maxIndex] = max(Torque);
+            maxRotorTorque = zeros(1,numberOfPoints);
+            maxFreqTorque = zeros(1,numberOfPoints);
+            maxRotorEff = zeros(1,numberOfPoints);
+            maxFreqEff = zeros(1,numberOfPoints);
+            
+            [maxTorque, maxTorqueIndex] = max(Torque);
+            [maxEff,maxEffIndex] = max(eff);
+            
             for k =1:numberOfPoints
-                maxRotor(k) = rotorMesh(maxIndex(k),k);
-                maxFreq(k) = freqMesh(maxIndex(k),k);
+                maxRotorTorque(k) = rotorMesh(maxTorqueIndex(k),k);
+                maxFreqTorque(k) = freqMesh(maxTorqueIndex(k),k);
+                maxRotorEff(k) = rotorMesh(maxEffIndex(k),k);
+                maxFreqEff(k) = freqMesh(maxEffIndex(k),k);
             end
             
-            plot3(maxFreq,maxRotor,maxTorque,'k*')
+            plot3(maxFreqTorque,maxRotorTorque,maxTorque,'k*')
+            %plot3(maxFreqEff,maxRotorEff,maxEff,'r*');
             
             
             figure;
@@ -310,6 +318,8 @@ classdef InductionMachine
             xlabel('Freq [Hz]')
             ylabel('Speed [RPM]')
             zlabel('Torque [Nm]')
+            hold on
+            contour3(freqMesh,rotorMesh,eff,'ShowText','on','LineColor','k');
             
             title(['Efficiency Map, VoF = ' num2str(Kvof)])
             
