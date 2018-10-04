@@ -199,7 +199,7 @@ classdef InductionMachine
                 case 2
                     voltage = newIM.nameplateData.Voltage;
                     frequency = newIM.nameplateData.Frequency;
-                    assert(strcmp(varargin{1},'full'),'flag not known. Did you mean: full')
+                    assert(strcmpi(varargin{1},'full'),'flag not known. Did you mean: full')
                     FULL_FLAG = true;
                 case 3
                     voltage = varargin{1};
@@ -208,7 +208,7 @@ classdef InductionMachine
                 case 4
                     voltage = varargin{1};
                     frequency = varargin{2};
-                    assert(strcmp(varargin{3},'full'),'flag not known. Did you mean: full')
+                    assert(strcmpi(varargin{3},'full'),'flag not known. Did you mean: full')
                     FULL_FLAG = true;
                 otherwise
                     error('Too many input arguments')
@@ -234,7 +234,7 @@ classdef InductionMachine
             figure
             newIM.plottorquecurrent(voltage,frequency,rotorSpeed,solutions);
             
-            if FULL_FLAG == true
+            if FULL_FLAG
                 figure;
                 newIM.subplotpowercurrent(voltage,frequency,rotorSpeed,solutions);
             end
@@ -245,53 +245,104 @@ classdef InductionMachine
 %-------SURFACE------------------------------------------------------------
         function surface(newIM,varargin)
             
-            %check how many input arguments are
-            %set voltage, frequency and flag
+            FLAG_STARTING = false;
+            FLAG_MAX = false;
+            
+            %check how many input arguments and set voltage, frequency and flag
             switch nargin
                 case 1
-                    Kvof = 1;
+                    finalKvof = 1;
                     finalFrequency = newIM.nameplateData.Frequency*1.10;
+                case 2
+                    finalKvof = 1;
+                    finalFrequency = newIM.nameplateData.Frequency*1.10;
+                    switch lower(varargin{1})
+                        case 'starting'
+                            FLAG_STARTING = true;
+                        case 'max'
+                            FLAG_MAX = true;
+                        otherwise
+                            error('flag not known. use starting or max.')
+                    end
                 case 3
-                    Kvof = varargin{1};
+                    finalKvof = varargin{1};
                     finalFrequency = varargin{2}*1.10;
+                case 4
+                    switch lower(varargin{3})
+                        case 'starting'
+                            FLAG_STARTING = true;
+                        case 'max'
+                            FLAG_MAX = true;
+                        otherwise
+                            error('flag not known. use starting or max.')
+                    end
                 otherwise
-                    error('Incorrect number of inputs. It Has 0 inputs, or 2 inputs: Scalar Command constant and final frequency, respectively.')
+                    error('Too many input arguments')
             end            
             
             %check if voltage and scalar command are positive
-            if ~newIM.CheckIfPositive(Kvof,finalFrequency)
+            if ~newIM.CheckIfPositive(finalKvof,finalFrequency)
                 warning('One of the inputs is negative. It was changed to positive.')
-                Kvof = abs(Kvof);
+                finalKvof = abs(finalKvof);
                 finalFrequency = abs(finalFrequency);
             end
             
-            %Make frequency and rotor speed mesh grid
+            %Make meshgrid
             numberOfPoints = 250;
-            statorFreq = finalFrequency/newIM.polePair;
             frequency = linspace(0,finalFrequency,numberOfPoints);
-            rotorSpeed = linspace(0,statorFreq,numberOfPoints)*60;
-            [freqMesh,rotorMesh] = meshgrid(frequency,rotorSpeed);
-            
-            %Compute Torque and Efficiency for each pair value of frequency and rotor speed
-            Torque = zeros(size(freqMesh));
-            eff = zeros(size(freqMesh));
-            for iFreq = frequency
-                %Compute the voltage
-                voltage = Kvof*iFreq;
-                %Only check solutions for which the rotorspeed is less than the stator frequency
-                iStatorFreq = iFreq/newIM.polePair*60;
-                auxRotorSpeed = rotorMesh(freqMesh == iFreq & rotorMesh <= iStatorFreq);
-                %Compute the solutions
-                solutions = SweepSolutions(newIM,voltage,iFreq,auxRotorSpeed);
-                Torque(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,4);
-                eff(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,end);
+            %Check what kind of plot is
+            if all(~[FLAG_STARTING FLAG_MAX])
+                %Normal torque and efficiency map
+                statorFreq = finalFrequency/newIM.polePair;
+                rotorSpeed = linspace(0,statorFreq,numberOfPoints)*60;
+                [freqMesh,rotorMesh] = meshgrid(frequency,rotorSpeed);
+                %Compute Torque and Efficiency for each pair value of frequency and rotor speed
+                Torque = zeros(size(freqMesh));
+                eff = zeros(size(freqMesh));
+                for iFreq = frequency
+                    %Compute the voltage
+                    voltage = finalKvof*iFreq;
+                    %Only check solutions for which the rotorspeed is less than the stator frequency
+                    iStatorFreq = iFreq/newIM.polePair*60;
+                    auxRotorSpeed = rotorMesh(freqMesh == iFreq & rotorMesh <= iStatorFreq);
+                    %Compute the solutions
+                    solutions = SweepSolutions(newIM,voltage,iFreq,auxRotorSpeed);
+                    Torque(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,4);
+                    eff(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,end);
+                end
+                %make freq,rotorspeed,torque map
+                newIM.plottorquemap(finalKvof,freqMesh,rotorMesh,Torque,'k*');
+                %labeling
+                grid minor
+                xlabel('Freq [Hz]')
+                ylabel('Speed [RPM]')
+                zlabel('Torque [Nm]')
+                title(['Torque Map, VoF = ' num2str(finalKvof)])
+                %make freq,rotorspeed,efficiency map
+                newIM.ploteffmap(finalKvof,freqMesh,rotorMesh,eff);
+                
+            else
+                Kvof = linspace(0,finalKvof*1.1,numberOfPoints);
+                [freqMesh,KvofMesh] = meshgrid(frequency,Kvof);
+                voltageMesh = freqMesh.*KvofMesh;
+                
+                if FLAG_STARTING
+                    startingTorque = newIM.getStartingTorque(voltageMesh,freqMesh);
+                    newIM.plottorquemap(finalKvof,freqMesh',KvofMesh',startingTorque','k');
+                end
+                if FLAG_MAX
+                    maxTorque = newIM.getMaxTorque(voltageMesh,freqMesh);
+                    newIM.plottorquemap(finalKvof,freqMesh,KvofMesh,maxTorque,'k')
+                end
+                %labeling
+                grid minor
+                xlabel('Freq [Hz]')
+                ylabel('V/F')
+                zlabel('Torque [Nm]')
+                title('Starting Torque Map')
             end
             
-            %make freq,rotorspeed,torque map
-            newIM.plottorquemap(Kvof,freqMesh,rotorMesh,Torque);
-            
-            %make freq,rotorspeed,efficiency map
-            newIM.ploteffmap(Kvof,freqMesh,rotorMesh,eff);
+
             
         end
 %-------END-SURFACE--------------------------------------------------------
@@ -474,9 +525,6 @@ classdef InductionMachine
 %-------GETSTARTINGTORQUE--------------------------------------------------
         function startingTorque = getStartingTorque(newIM,voltage,frequency)
             
-            %check if voltage and frequency are positive
-            [voltage,frequency] = newIM.CheckVoltageFrequency(voltage,frequency);
-            
             %initialize variables
             t = 2*pi;
             we = t*frequency;
@@ -489,17 +537,15 @@ classdef InductionMachine
             
             [VTH , ZTH] = newIM.getThevenin(voltage,frequency);
             
-            Ir = abs(VTH/(ZTH + 1j*Xr + Rr));
+            Ir = abs(VTH./(ZTH + 1j.*Xr + Rr));
             
-            startingTorque = 3/ws * Ir^2 * Rr;
+            startingTorque = 3./ws .* Ir.^2 .* Rr;
+            startingTorque(frequency == 0) = 0;
         end
 %-------END-GETSTARTINGTORQUE----------------------------------------------
 
 %-------GETMAXTORQUE-------------------------------------------------------
         function [maxTorque, maximRotorSpeed] = getMaxTorque(newIM,voltage,frequency)
-            
-            %check if voltage and frequency are positive
-            [voltage,frequency] = newIM.CheckVoltageFrequency(voltage,frequency);
             
             %initialize variables
             t = 2*pi;
@@ -516,9 +562,11 @@ classdef InductionMachine
             RTH = real(ZTH);
             XTH = imag(ZTH);
             
-            maxTorque = 3/(2*ws) * abs(VTH)^2 * 1/(RTH + sqrt(RTH^2 + (XTH + Xr)^2));
+            maxTorque = 3./(2*ws) .* abs(VTH).^2 * 1./(RTH + sqrt(RTH.^2 + (XTH + Xr).^2));
+            maxTorque(frequency == 0) = 0;
             
-            maximSlip = Rr * 1/(RTH + sqrt(RTH^2 + (XTH + Xr)^2));
+            maximSlip = Rr * 1./(RTH + sqrt(RTH.^2 + (XTH + Xr).^2));
+            maximSlip(frequency == 0) = 0;
             
             maximRotorSpeed = newIM.Slip2RotorSpeed(frequency,maximSlip);
         end
@@ -550,11 +598,11 @@ classdef InductionMachine
             
             if ~newIM.CheckIfPositive(frequency)
                 warning('frequency negative. changing it to positive')
-                f = -frequency;
+                f = abs(frequency);
             end
             if ~newIM.CheckIfPositive(voltage)
                 warning('voltage negative. changing it to positive')
-                v = -voltage;
+                v = abs(voltage);
             end
         end
 %-------END-CHECKIFPOSITIVE------------------------------------------------
@@ -574,7 +622,7 @@ classdef InductionMachine
                 
                 statorSpeed = frequency*60/pp;
                 
-                rotorSpeed = (1-slip)*statorSpeed;
+                rotorSpeed = (1-slip).*statorSpeed;
         end
 %-------END-SLIP2ROTORSPEED------------------------------------------------
 
@@ -584,7 +632,7 @@ classdef InductionMachine
                 
                 statorSpeed = frequency*60/pp;
                 
-                slip = 1 - RotorSpeed/statorSpeed;
+                slip = 1 - RotorSpeed./statorSpeed;
         end
 %-------END-SLIP2ROTORSPEED------------------------------------------------
     
@@ -592,15 +640,15 @@ classdef InductionMachine
         function [VTH,ZTH] = getThevenin(newIM,voltage,frequency)
             
             v = voltage/sqrt(3);
-            we = 2*pi*frequency;
+            we = 2*pi.*frequency;
             
             eqc = newIM.EQCircuit;           
             Rs = eqc(1);
             Xs = we*eqc(2);
             XM = we*eqc(4);
             
-            VTH = v*1j*XM/(Rs + 1j*(Xs + XM));
-            ZTH = 1j*XM*(Rs + 1j*Xs)/(Rs + 1j*(Xs + XM));
+            VTH = v.*1j.*XM./(Rs + 1j.*(Xs + XM));
+            ZTH = 1j.*XM.*(Rs + 1j.*Xs)./(Rs + 1j.*(Xs + XM));
         end
 %-------END-GETTHEVENIN----------------------------------------------------
  
@@ -667,7 +715,7 @@ classdef InductionMachine
 %-------END-PLOTTORQUECURRENT----------------------------------------------
 
 %-------END-PLOTTORQUEMAP--------------------------------------------------
-        function plottorquemap(~,Kvof,freqMesh,rotorMesh,Torque)
+        function plottorquemap(~,Kvof,freqMesh,rotorMesh,Torque,varargin)
 
             numberOfPoints = length(freqMesh);
             %Check in map where is the max torque
@@ -684,13 +732,7 @@ classdef InductionMachine
             surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
             hold on
             %max torque line in the map
-            plot3(maxFreqTorque,maxRotorTorque,maxTorque,'k*')
-            %labeling
-            grid minor
-            xlabel('Freq [Hz]')
-            ylabel('Speed [RPM]')
-            zlabel('Torque [Nm]')
-            title(['Torque Map, VoF = ' num2str(Kvof)])
+            plot3(maxFreqTorque,maxRotorTorque,maxTorque,varargin{:})
         end
 %-------END-PLOTTORQUEMAP--------------------------------------------------
 
