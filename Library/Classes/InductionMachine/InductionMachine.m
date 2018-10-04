@@ -339,7 +339,7 @@ classdef InductionMachine
                 xlabel('Freq [Hz]')
                 ylabel('V/F')
                 zlabel('Torque [Nm]')
-                title('Starting Torque Map')
+                title('Max Torque Map')
             end
             
 
