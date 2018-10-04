@@ -232,11 +232,11 @@ classdef InductionMachine
             solutions = SweepSolutions(newIM,voltage,frequency,rotorSpeed);
             
             figure
-            plottorquecurrent(voltage,frequency,rotorSpeed,solutions);
+            newIM.plottorquecurrent(voltage,frequency,rotorSpeed,solutions);
             
             if FULL_FLAG == true
                 figure;
-                subplotpowercurrent(voltage,frequency,rotorSpeed,solutions);
+                newIM.subplotpowercurrent(voltage,frequency,rotorSpeed,solutions);
             end
             
         end
@@ -287,40 +287,11 @@ classdef InductionMachine
                 eff(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,end);
             end
             
-            %Check in map where is the max torque
-            maxRotorTorque = zeros(1,numberOfPoints);
-            maxFreqTorque = zeros(1,numberOfPoints);
-            [maxTorque, maxTorqueIndex] = max(Torque);
-            for k =1:numberOfPoints
-                maxRotorTorque(k) = rotorMesh(maxTorqueIndex(k),k);
-                maxFreqTorque(k) = freqMesh(maxTorqueIndex(k),k);
-            end
-            
             %make freq,rotorspeed,torque map
-            figure;
-            surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
-            hold on
-            %max torque line in the map
-            plot3(maxFreqTorque,maxRotorTorque,maxTorque,'k*')
-            %labeling
-            grid minor
-            xlabel('Freq [Hz]')
-            ylabel('Speed [RPM]')
-            zlabel('Torque [Nm]')
-            title(['Torque Map, VoF = ' num2str(Kvof)])
+            newIM.plottorquemap(Kvof,freqMesh,rotorMesh,Torque);
             
             %make freq,rotorspeed,efficiency map
-            figure;
-            surf(freqMesh,rotorMesh,eff,'EdgeColor','none')
-            hold on
-            %contour map
-            contour3(freqMesh,rotorMesh,eff,'ShowText','on','LineColor','k');
-            %labeling
-            grid minor
-            xlabel('Freq [Hz]')
-            ylabel('Speed [RPM]')
-            zlabel('Torque [Nm]')
-            title(['Efficiency Map, VoF = ' num2str(Kvof)])
+            newIM.ploteffmap(Kvof,freqMesh,rotorMesh,eff);
             
         end
 %-------END-SURFACE--------------------------------------------------------
@@ -329,7 +300,6 @@ classdef InductionMachine
 %-SET METHODS--------------------------------------------------------------
 %--------------------------------------------------------------------------
 
-        
         function newIM = set.EQCircuit(newIM,EQCircuit)
             %check if EQCircuit is a strucutre
             flagStructEC = isnumeric(EQCircuit);
@@ -633,8 +603,7 @@ classdef InductionMachine
             ZTH = 1j*XM*(Rs + 1j*Xs)/(Rs + 1j*(Xs + XM));
         end
 %-------END-GETTHEVENIN----------------------------------------------------
-
-    
+ 
 %-------GETTORQUEFUNCTIONHANDLE--------------------------------------------
         function fHandle = TorqueFunctionHandle(newIM,voltage,frequency)
         
@@ -659,6 +628,109 @@ classdef InductionMachine
         end
 %-------END-GETTORQUEFUNCTIONHANDLE----------------------------------------
 
+%-------PLOTEFFMAP---------------------------------------------------------
+        function ploteffmap(~,Kvof,freqMesh,rotorMesh,eff)
+            %make freq,rotorspeed,efficiency map
+            figure;
+            surf(freqMesh,rotorMesh,eff,'EdgeColor','none')
+            hold on
+            %contour map
+            contour3(freqMesh,rotorMesh,eff,'ShowText','on','LineColor','k');
+            %labeling
+            grid minor
+            xlabel('Freq [Hz]')
+            ylabel('Speed [RPM]')
+            zlabel('Torque [Nm]')
+            title(['Efficiency Map, VoF = ' num2str(Kvof)])
+        end
+%-------END-PLOTEFFMAP-----------------------------------------------------
+
+%-------END-PLOTTORQUECURRENT----------------------------------------------
+        function plottorquecurrent(~,voltage,frequency,rotorSpeed,EQCSolutions)
+
+            [maxTorque,maxTorqueIndex] = max(EQCSolutions(:,4));
+            rotorSpeedMaximizer = rotorSpeed(maxTorqueIndex);
+
+            yyaxis left
+            plot(rotorSpeed',EQCSolutions(:,4),'b',rotorSpeedMaximizer,maxTorque,'*k');
+            ylabel('Torque [Nm]')
+
+            yyaxis right
+            plot(rotorSpeed',EQCSolutions(:,1),'r');
+            ylabel('Stator Current [A]')
+
+            grid minor
+            xlabel('speed [RPM]')
+            titleString = sprintf('U = %g [V], F = %g [Hz], V/F = %0.2g',voltage,frequency, voltage/frequency);
+            title(titleString)
+        end
+%-------END-PLOTTORQUECURRENT----------------------------------------------
+
+%-------END-PLOTTORQUEMAP--------------------------------------------------
+        function plottorquemap(~,Kvof,freqMesh,rotorMesh,Torque)
+
+            numberOfPoints = length(freqMesh);
+            %Check in map where is the max torque
+            maxRotorTorque = zeros(1,numberOfPoints);
+            maxFreqTorque = zeros(1,numberOfPoints);
+            [maxTorque, maxTorqueIndex] = max(Torque);
+            for k =1:numberOfPoints
+                maxRotorTorque(k) = rotorMesh(maxTorqueIndex(k),k);
+                maxFreqTorque(k) = freqMesh(maxTorqueIndex(k),k);
+            end
+
+            %make freq,rotorspeed,torque map
+            figure;
+            surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
+            hold on
+            %max torque line in the map
+            plot3(maxFreqTorque,maxRotorTorque,maxTorque,'k*')
+            %labeling
+            grid minor
+            xlabel('Freq [Hz]')
+            ylabel('Speed [RPM]')
+            zlabel('Torque [Nm]')
+            title(['Torque Map, VoF = ' num2str(Kvof)])
+        end
+%-------END-PLOTTORQUEMAP--------------------------------------------------
+
+%-------SUBPLOTPOWERCURRENT------------------------------------------------
+        function subplotpowercurrent(~,voltage,frequency,rotorSpeed,EQCSolutions)
+        %UNTITLED Summary of this function goes here
+        %   Detailed explanation goes here
+
+        ax(1) = subplot(2,3,1:3);
+        ax(2) = subplot(2,3,4);
+        ax(3) = subplot(2,3,5);
+        ax(4) = subplot(2,3,6);
+
+        % Rotor speed vs. (POut,Eff)
+        yyaxis(ax(1),'left')
+        plot(ax(1),rotorSpeed,EQCSolutions(:,6)*1e-3)
+        ylabel(ax(1),'Output Power [kW]')
+
+        yyaxis(ax(1),'right')
+        plot(ax(1),rotorSpeed,EQCSolutions(:,end))
+        ylabel(ax(1),'eff [%]')
+
+        %Rotor speed vs. (Is,IM,Ir)
+        plot(ax(2),rotorSpeed,EQCSolutions(:,1))
+        ylabel(ax(2),'Stator Current [A]')
+        plot(ax(3),rotorSpeed,EQCSolutions(:,2))
+        ylabel(ax(3),'Mag. Current [A]')
+        plot(ax(4),rotorSpeed,EQCSolutions(:,3))
+        ylabel(ax(4),'Rotor Current [A]')
+
+        for aHandle = ax
+            xlabel(aHandle,'Speed [RPM]')
+            grid(aHandle,'minor')
+        end
+
+        titleString = sprintf('U = %g [V], F = %g [Hz], V/F = %0.2g',voltage/frequency, voltage/frequency);
+        title(ax(1),titleString)
+
+        end
+%-------END-SUBPLOTPOWERCURRENT--------------------------------------------
     end    
 end
 
