@@ -2,7 +2,6 @@ function subplotpowercurrent(voltage,frequency,rotorSpeed,EQCSolutions)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 
-
 ax(1) = subplot(2,3,1:3);
 ax(2) = subplot(2,3,4);
 ax(3) = subplot(2,3,5);
@@ -30,7 +29,7 @@ for aHandle = ax
     grid(aHandle,'minor')
 end
 
-titleString = sprintf('Us = %g [V], F = %g [Hz], V/F = %0.2g',voltage/sqrt(3),frequency, voltage/sqrt(3)/frequency);
+titleString = sprintf('U = %g [V], F = %g [Hz], V/F = %0.2g',voltage/frequency, voltage/frequency);
 title(ax(1),titleString)
 
 end
