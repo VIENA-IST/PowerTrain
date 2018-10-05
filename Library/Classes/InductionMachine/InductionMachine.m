@@ -280,7 +280,7 @@ classdef InductionMachine
                     error('Too many input arguments')
             end            
             
-            %check if voltage and scalar command are positive
+            %Check if voltage and scalar command are positive
             if ~newIM.CheckIfPositive(finalKvof,finalFrequency)
                 warning('One of the inputs is negative. It was changed to positive.')
                 finalKvof = abs(finalKvof);
@@ -311,39 +311,40 @@ classdef InductionMachine
                     eff(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,end);
                 end
                 %make freq,rotorspeed,torque map
-                newIM.plottorquemap(finalKvof,freqMesh,rotorMesh,Torque,'k*');
-                %labeling
+                figure;
+                surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
+                %Labeling
                 grid minor
                 xlabel('Freq [Hz]')
                 ylabel('Speed [RPM]')
                 zlabel('Torque [Nm]')
                 title(['Torque Map, VoF = ' num2str(finalKvof)])
-                %make freq,rotorspeed,efficiency map
+                %Make freq,rotorspeed,efficiency map
                 newIM.ploteffmap(finalKvof,freqMesh,rotorMesh,eff);
                 
             else
                 Kvof = linspace(0,finalKvof*1.1,numberOfPoints);
                 [freqMesh,KvofMesh] = meshgrid(frequency,Kvof);
                 voltageMesh = freqMesh.*KvofMesh;
-                
+                %Used STARTING flag
                 if FLAG_STARTING
                     startingTorque = newIM.getStartingTorque(voltageMesh,freqMesh);
-                    newIM.plottorquemap(finalKvof,freqMesh',KvofMesh',startingTorque','k');
+                    figure;
+                    surf(freqMesh,KvofMesh,startingTorque,'EdgeColor','none') 
                 end
+                %Used MAX flag
                 if FLAG_MAX
                     maxTorque = newIM.getMaxTorque(voltageMesh,freqMesh);
-                    newIM.plottorquemap(finalKvof,freqMesh,KvofMesh,maxTorque,'k')
+                    figure;
+                    surf(freqMesh,KvofMesh,maxTorque,'EdgeColor','none') 
                 end
-                %labeling
+                %Labeling
                 grid minor
                 xlabel('Freq [Hz]')
                 ylabel('V/F')
                 zlabel('Torque [Nm]')
                 title('Max Torque Map')
-            end
-            
-
-            
+            end      
         end
 %-------END-SURFACE--------------------------------------------------------
 
@@ -688,7 +689,7 @@ classdef InductionMachine
             grid minor
             xlabel('Freq [Hz]')
             ylabel('Speed [RPM]')
-            zlabel('Torque [Nm]')
+            zlabel('%')
             title(['Efficiency Map, VoF = ' num2str(Kvof)])
         end
 %-------END-PLOTEFFMAP-----------------------------------------------------
@@ -713,28 +714,6 @@ classdef InductionMachine
             title(titleString)
         end
 %-------END-PLOTTORQUECURRENT----------------------------------------------
-
-%-------END-PLOTTORQUEMAP--------------------------------------------------
-        function plottorquemap(~,Kvof,freqMesh,rotorMesh,Torque,varargin)
-
-            numberOfPoints = length(freqMesh);
-            %Check in map where is the max torque
-            maxRotorTorque = zeros(1,numberOfPoints);
-            maxFreqTorque = zeros(1,numberOfPoints);
-            [maxTorque, maxTorqueIndex] = max(Torque);
-            for k =1:numberOfPoints
-                maxRotorTorque(k) = rotorMesh(maxTorqueIndex(k),k);
-                maxFreqTorque(k) = freqMesh(maxTorqueIndex(k),k);
-            end
-
-            %make freq,rotorspeed,torque map
-            figure;
-            surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
-            hold on
-            %max torque line in the map
-            plot3(maxFreqTorque,maxRotorTorque,maxTorque,varargin{:})
-        end
-%-------END-PLOTTORQUEMAP--------------------------------------------------
 
 %-------SUBPLOTPOWERCURRENT------------------------------------------------
         function subplotpowercurrent(~,voltage,frequency,rotorSpeed,EQCSolutions)
