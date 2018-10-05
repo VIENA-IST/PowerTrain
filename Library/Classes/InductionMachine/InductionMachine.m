@@ -245,6 +245,7 @@ classdef InductionMachine
 %-------SURFACE------------------------------------------------------------
         function surface(newIM,varargin)
             
+            FLAG_STABLE = false;
             FLAG_STARTING = false;
             FLAG_MAX = false;
             
@@ -261,8 +262,10 @@ classdef InductionMachine
                             FLAG_STARTING = true;
                         case 'max'
                             FLAG_MAX = true;
+                        case 'stable'
+                            FLAG_STABLE = true;
                         otherwise
-                            error('flag not known. use starting or max.')
+                            error('flag not known. use starting, max or stable.')
                     end
                 case 3
                     finalKvof = varargin{1};
@@ -273,8 +276,10 @@ classdef InductionMachine
                             FLAG_STARTING = true;
                         case 'max'
                             FLAG_MAX = true;
+                        case 'stable'
+                            FLAG_STABLE = true;
                         otherwise
-                            error('flag not known. use starting or max.')
+                            error('flag not known. use starting, max or stable.')
                     end
                 otherwise
                     error('Too many input arguments')
@@ -288,7 +293,7 @@ classdef InductionMachine
             end
             
             %Make meshgrid
-            numberOfPoints = 250;
+            numberOfPoints = 1000;
             frequency = linspace(0,finalFrequency,numberOfPoints);
             %Check what kind of plot is
             if all(~[FLAG_STARTING FLAG_MAX])
@@ -297,8 +302,8 @@ classdef InductionMachine
                 rotorSpeed = linspace(0,statorFreq,numberOfPoints)*60;
                 [freqMesh,rotorMesh] = meshgrid(frequency,rotorSpeed);
                 %Compute Torque and Efficiency for each pair value of frequency and rotor speed
-                Torque = zeros(size(freqMesh));
-                eff = zeros(size(freqMesh));
+                Torque = NaN(size(freqMesh));
+                eff = NaN(size(freqMesh));
                 for iFreq = frequency
                     %Compute the voltage
                     voltage = finalKvof*iFreq;
@@ -310,18 +315,22 @@ classdef InductionMachine
                     Torque(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,4);
                     eff(freqMesh == iFreq & rotorMesh <= iStatorFreq) = solutions(:,end);
                 end
-                %make freq,rotorspeed,torque map
-                figure;
-                surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
-                %Labeling
-                grid minor
-                xlabel('Freq [Hz]')
-                ylabel('Speed [RPM]')
-                zlabel('Torque [Nm]')
-                title(['Torque Map, VoF = ' num2str(finalKvof)])
-                %Make freq,rotorspeed,efficiency map
-                newIM.ploteffmap(finalKvof,freqMesh,rotorMesh,eff);
-                
+                if FLAG_STABLE
+                    [~,maximRotorSpeed] = newIM.getMaxTorque(finalKvof*frequency(1,:),frequency(1,:));
+                    Torque(rotorMesh < maximRotorSpeed) = NaN;
+                    eff(rotorMesh < maximRotorSpeed) = NaN;
+                end
+                    %make freq,rotorspeed,torque map
+                    figure;
+                    surf(freqMesh,rotorMesh,Torque,'EdgeColor','none')
+                    %Labeling
+                    grid minor
+                    xlabel('Freq [Hz]')
+                    ylabel('Speed [RPM]')
+                    zlabel('Torque [Nm]')
+                    title(['Torque Map, VoF = ' num2str(finalKvof)])
+                    %Make freq,rotorspeed,efficiency map
+                    newIM.ploteffmap(finalKvof,freqMesh,rotorMesh,eff);
             else
                 Kvof = linspace(0,finalKvof*1.1,numberOfPoints);
                 [freqMesh,KvofMesh] = meshgrid(frequency,Kvof);
